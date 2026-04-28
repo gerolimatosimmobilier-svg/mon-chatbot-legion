@@ -6,12 +6,11 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Remplace bien par ta vraie clé si celle-là est une ancienne
-const genAI = new GoogleGenerativeAI("AIzaSyBFetZGfaxFcWEoCIClGaAXYpT2Q3qfmVo");
+// Ici, on récupère la clé cachée dans Render
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 app.post('/chat', async (req, res) => {
     try {
-        // On teste le modèle 'gemini-1.5-flash' qui est plus rapide et moderne
         const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
         
         const prompt = `Tu es l'expert immobilier de Project Legion en Suisse. 
@@ -23,9 +22,8 @@ app.post('/chat', async (req, res) => {
         
         res.json({ reply: text });
     } catch (error) {
-        // Ceci va nous dire EXACTEMENT pourquoi Google refuse dans les logs Render
-        console.error("ERREUR GOOGLE AI:", error.message);
-        res.status(500).json({ reply: "Erreur Google : " + error.message });
+        console.error("ERREUR:", error.message);
+        res.status(500).json({ reply: "Désolé, je rencontre une erreur technique." });
     }
 });
 
