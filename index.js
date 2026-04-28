@@ -6,34 +6,34 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Récupère la clé depuis Render ou utilise la tienne par défaut
-const API_KEY = process.env.GEMINI_API_KEY || "AIzaSyBFetZGfaxFcWEoCIClGaAXYpT2Q3qfmVo";
-const genAI = new GoogleGenerativeAI(API_KEY);
+// On initialise l'API avec ta clé
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "AIzaSyBFetZGfaxFcWEoCIClGaAXYpT2Q3qfmVo");
 
 app.post('/chat', async (req, res) => {
     try {
-        // On utilise le nom de modèle complet pour éviter l'erreur 404
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        // Test avec le nom de modèle "stable" sans numéro de version
+        const model = genAI.getGenerativeModel({ model: "gemini-pro" });
         
-        const prompt = `Tu es l'expert immobilier stratégique de Project Legion en Suisse. 
-        Réponds sur l'immobilier, Art 7 RPGA et Art 84 LATC. 
+        const prompt = `Tu es l'expert immobilier de Project Legion en Suisse. 
+        Réponds sur l'immobilier, Art 7 RPGA et Art 84 LATC.
         Question : ${req.body.message}`;
 
-        // Utilisation de la méthode la plus directe
         const result = await model.generateContent(prompt);
-        const text = result.response.text();
+        const response = await result.response;
+        const text = response.text();
         
         res.json({ reply: text });
     } catch (error) {
-        console.error("ERREUR GOOGLE AI:", error.message);
+        console.error("ERREUR 1 (gemini-pro):", error.message);
         
-        // Si gemini-1.5-flash échoue, on tente une dernière fois avec gemini-pro
+        // DEUXIÈME TENTATIVE : Si le premier échoue, on tente le flash
         try {
-            const fallbackModel = genAI.getGenerativeModel({ model: "gemini-pro" });
-            const result = await fallbackModel.generateContent(req.body.message);
+            const modelFlash = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+            const result = await modelFlash.generateContent(req.body.message);
             res.json({ reply: result.response.text() });
-        } catch (fallbackError) {
-            res.status(500).json({ reply: "Désolé, j'ai encore un petit souci de connexion avec Google." });
+        } catch (error2) {
+            console.error("ERREUR 2 (gemini-1.5-flash-latest):", error2.message);
+            res.status(500).json({ reply: "Désolé, Google refuse la connexion. Vérifie ta clé API." });
         }
     }
 });
