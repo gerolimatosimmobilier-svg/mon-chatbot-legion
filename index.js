@@ -1,22 +1,21 @@
 const express = require('express');
-const cors = require('cors'); // Ajout indispensable
+const cors = require('cors');
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 const app = express();
-
-// Autorise ton site Webador à parler au serveur Render
-app.use(cors()); 
+app.use(cors());
 app.use(express.json());
 
-// Initialisation avec ta clé
+// Remplace bien par ta vraie clé si celle-là est une ancienne
 const genAI = new GoogleGenerativeAI("AIzaSyBFetZGfaxFcWEoCIClGaAXYpT2Q3qfmVo");
 
 app.post('/chat', async (req, res) => {
     try {
-        const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+        // On teste le modèle 'gemini-1.5-flash' qui est plus rapide et moderne
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
         
-        const prompt = `Tu es l'expert immobilier stratégique de Project Legion en Suisse. 
-        Réponds de manière professionnelle sur l'immobilier, notamment sur les dérogations à l'art. 7 du RPGA (distances aux limites) et l'application de l'art. 84 de la LATC.
+        const prompt = `Tu es l'expert immobilier de Project Legion en Suisse. 
+        Réponds sur l'immobilier, Art 7 RPGA et Art 84 LATC.
         Question : ${req.body.message}`;
 
         const result = await model.generateContent(prompt);
@@ -24,11 +23,11 @@ app.post('/chat', async (req, res) => {
         
         res.json({ reply: text });
     } catch (error) {
-        console.error("Erreur détaillée:", error);
-        res.status(500).json({ reply: "Désolé, j'ai une petite panne de cerveau. Réessaie dans une minute !" });
+        // Ceci va nous dire EXACTEMENT pourquoi Google refuse dans les logs Render
+        console.error("ERREUR GOOGLE AI:", error.message);
+        res.status(500).json({ reply: "Erreur Google : " + error.message });
     }
 });
 
-// Utilisation du port dynamique pour Render
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Chatbot prêt sur le port ${PORT} !`));
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, () => console.log(`Serveur prêt sur le port ${PORT}`));
