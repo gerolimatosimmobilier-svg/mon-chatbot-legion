@@ -1,38 +1,38 @@
 const express = require('express');
 const cors = require('cors');
-const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Vérification de sécurité au démarrage
-const API_KEY = process.env.GEMINI_API_KEY;
-
-if (!API_KEY) {
-    console.error("ERREUR CRITIQUE : La variable GEMINI_API_KEY est absente dans Render !");
-}
-
-const genAI = new GoogleGenerativeAI(API_KEY);
-
 app.post('/chat', async (req, res) => {
+    // TA CLÉ EST ICI DIRECTEMENT
+    const API_KEY = "AIzaSyB_WuhWbQyb9oUMlPyx3Hy-p1YPcJkkHsM"; 
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
+
     try {
-        // On force la v1beta qui a fonctionné dans ton curl
-        const model = genAI.getGenerativeModel({ 
-            model: "gemini-1.5-flash" 
-        }, { apiVersion: 'v1beta' });
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{
+                    parts: [{ text: `Tu es l'expert immobilier de Project Legion. Réponds à : ${req.body.message}` }]
+                }]
+            })
+        });
 
-        const prompt = `Tu es l'expert immobilier de Project Legion en Suisse. 
-        Réponds sur l'immobilier, l'Art 7 du RPGA et l'Art 84 de la LATC.
-        Question : ${req.body.message}`;
+        const data = await response.json();
 
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        
-        res.json({ reply: response.text() });
+        if (data.error) {
+            console.error("ERREUR:", data.error.message);
+            return res.status(500).json({ reply: "Erreur Google : " + data.error.message });
+        }
+
+        const reply = data.candidates[0].content.parts[0].text;
+        res.json({ reply: reply });
+
     } catch (error) {
-        console.error("DÉTAIL ERREUR:", error.message);
-        res.status(500).json({ reply: "Souci d'autorisation avec Google. Vérifie la clé API dans Render." });
+        res.status(500).json({ reply: "Erreur de connexion au serveur." });
     }
 });
 
