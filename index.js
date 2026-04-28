@@ -6,29 +6,30 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// On initialise l'API
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 app.post('/chat', async (req, res) => {
     try {
-        // On utilise gemini-1.5-flash avec v1beta
+        // FORCE LA VERSION v1beta (indispensable selon ton test curl)
         const model = genAI.getGenerativeModel({ 
             model: "gemini-1.5-flash" 
         }, { apiVersion: 'v1beta' });
 
         const prompt = `Tu es l'expert immobilier de Project Legion en Suisse. 
-        Réponds de manière pro sur l'immobilier, l'Art 7 du RPGA et l'Art 84 de la LATC.
-        Question du client : ${req.body.message}`;
+        Réponds sur l'immobilier, l'Art 7 du RPGA et l'Art 84 de la LATC.
+        Question : ${req.body.message}`;
 
-        // Structure simplifiée pour éviter le refus de Google
+        // Utilisation de la méthode la plus stable
         const result = await model.generateContent(prompt);
         const response = await result.response;
         const text = response.text();
         
         res.json({ reply: text });
     } catch (error) {
-        // On log l'erreur précise pour savoir exactement POURQUOI Google refuse
-        console.error("DÉTAIL ERREUR GOOGLE:", error);
-        res.status(500).json({ reply: "Erreur de configuration Google. Vérifie les logs Render." });
+        // Log ultra-précis pour le debug dans Render
+        console.error("ERREUR DÉTAILLÉE:", error.message);
+        res.status(500).json({ reply: "Désolé, j'ai un petit souci technique. Réessaie dans une minute !" });
     }
 });
 
