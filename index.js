@@ -6,27 +6,29 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// INITIALISATION CRUCIALE : On force la version v1beta
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 app.post('/chat', async (req, res) => {
     try {
-        // On utilise le nom exact de ton curl : gemini-1.5-flash
+        // On utilise gemini-1.5-flash avec v1beta
         const model = genAI.getGenerativeModel({ 
-            model: "gemini-1.5-flash"
-        }, { apiVersion: 'v1beta' }); // <--- C'est ça qui manquait !
+            model: "gemini-1.5-flash" 
+        }, { apiVersion: 'v1beta' });
 
         const prompt = `Tu es l'expert immobilier de Project Legion en Suisse. 
-        Contexte : Art 7 RPGA et Art 84 LATC.
-        Question : ${req.body.message}`;
+        Réponds de manière pro sur l'immobilier, l'Art 7 du RPGA et l'Art 84 de la LATC.
+        Question du client : ${req.body.message}`;
 
+        // Structure simplifiée pour éviter le refus de Google
         const result = await model.generateContent(prompt);
-        const text = result.response.text();
+        const response = await result.response;
+        const text = response.text();
         
         res.json({ reply: text });
     } catch (error) {
-        console.error("ERREUR GOOGLE AI:", error.message);
-        res.status(500).json({ reply: "Connexion établie mais Google refuse la requête. Vérifie les logs Render." });
+        // On log l'erreur précise pour savoir exactement POURQUOI Google refuse
+        console.error("DÉTAIL ERREUR GOOGLE:", error);
+        res.status(500).json({ reply: "Erreur de configuration Google. Vérifie les logs Render." });
     }
 });
 
