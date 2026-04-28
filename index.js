@@ -6,16 +6,18 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// On initialise avec la clé d'environnement Render
+// INITIALISATION CRUCIALE : On force la version v1beta
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 app.post('/chat', async (req, res) => {
     try {
-        // Version "latest" pour éviter l'erreur 404
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
-        
+        // On utilise le nom exact de ton curl : gemini-1.5-flash
+        const model = genAI.getGenerativeModel({ 
+            model: "gemini-1.5-flash"
+        }, { apiVersion: 'v1beta' }); // <--- C'est ça qui manquait !
+
         const prompt = `Tu es l'expert immobilier de Project Legion en Suisse. 
-        Contexte légal : Art 7 RPGA (distances limites) et Art 84 LATC.
+        Contexte : Art 7 RPGA et Art 84 LATC.
         Question : ${req.body.message}`;
 
         const result = await model.generateContent(prompt);
@@ -23,9 +25,8 @@ app.post('/chat', async (req, res) => {
         
         res.json({ reply: text });
     } catch (error) {
-        // On affiche l'erreur exacte dans Render pour le debug
         console.error("ERREUR GOOGLE AI:", error.message);
-        res.status(500).json({ reply: "Petit souci de connexion avec Google... Réessaie dans un instant." });
+        res.status(500).json({ reply: "Connexion établie mais Google refuse la requête. Vérifie les logs Render." });
     }
 });
 
