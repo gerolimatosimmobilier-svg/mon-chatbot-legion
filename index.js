@@ -6,26 +6,35 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// On utilise la variable d'environnement GEMINI_API_KEY que tu as configurée dans Render
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "AIzaSyBFetZGfaxFcWEoCIClGaAXYpT2Q3qfmVo");
+// Récupère la clé depuis Render ou utilise la tienne par défaut
+const API_KEY = process.env.GEMINI_API_KEY || "AIzaSyBFetZGfaxFcWEoCIClGaAXYpT2Q3qfmVo";
+const genAI = new GoogleGenerativeAI(API_KEY);
 
 app.post('/chat', async (req, res) => {
     try {
-        // CHANGEMENT ICI : On utilise gemini-1.5-flash (le plus récent et rapide)
+        // On utilise le nom de modèle complet pour éviter l'erreur 404
         const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
         
         const prompt = `Tu es l'expert immobilier stratégique de Project Legion en Suisse. 
-        Réponds de manière professionnelle sur l'immobilier, notamment sur les dérogations à l'art. 7 du RPGA et l'application de l'art. 84 de la LATC.
+        Réponds sur l'immobilier, Art 7 RPGA et Art 84 LATC. 
         Question : ${req.body.message}`;
 
+        // Utilisation de la méthode la plus directe
         const result = await model.generateContent(prompt);
-        const response = await result.response;
-        const text = response.text();
+        const text = result.response.text();
         
         res.json({ reply: text });
     } catch (error) {
         console.error("ERREUR GOOGLE AI:", error.message);
-        res.status(500).json({ reply: "Désolé, j'ai une petite panne de cerveau. Réessaie dans une minute !" });
+        
+        // Si gemini-1.5-flash échoue, on tente une dernière fois avec gemini-pro
+        try {
+            const fallbackModel = genAI.getGenerativeModel({ model: "gemini-pro" });
+            const result = await fallbackModel.generateContent(req.body.message);
+            res.json({ reply: result.response.text() });
+        } catch (fallbackError) {
+            res.status(500).json({ reply: "Désolé, j'ai encore un petit souci de connexion avec Google." });
+        }
     }
 });
 
