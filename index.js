@@ -1,56 +1,70 @@
 const express = require('express');
 const cors = require('cors');
+
 const app = express();
+
+// AUTORISATIONS POUR WEBADOR
 app.use(cors());
 app.use(express.json());
+app.use((req, res, next) => {
+    // On dit au navigateur que ce site PEUT être affiché dans une iframe
+    res.setHeader("Content-Security-Policy", "frame-ancestors *");
+    res.setHeader("X-Frame-Options", "ALLOWALL");
+    next();
+});
 
-// 1. L'INTERFACE VISUELLE (Ce que les clients voient sur Webador)
+// 1. L'INTERFACE VISUELLE
 app.get('/', (req, res) => {
     res.send(`
     <!DOCTYPE html>
-    <html lang="fr">
+    <html>
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Litos Coach</title>
         <style>
-            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f4f9; margin: 0; display: flex; flex-direction: column; height: 100vh; }
-            #chat-container { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
-            .msg { max-width: 80%; padding: 12px; border-radius: 15px; font-size: 14px; line-height: 1.4; }
-            .bot { background: #c1a059; color: white; align-self: flex-start; border-bottom-left-radius: 2px; }
-            .user { background: #333; color: white; align-self: flex-end; border-bottom-right-radius: 2px; }
-            #input-area { padding: 20px; background: white; display: flex; gap: 10px; border-top: 1px solid #ddd; }
-            input { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 5px; outline: none; }
-            button { background: #c1a059; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; }
+            body { font-family: sans-serif; margin: 0; background: #fdfcf9; display: flex; flex-direction: column; height: 100vh; }
+            header { background: #333; color: #c1a059; padding: 15px; text-align: center; font-weight: bold; border-bottom: 3px solid #c1a059; }
+            #chat { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; }
+            .msg { max-width: 85%; padding: 10px 15px; border-radius: 15px; font-size: 14px; }
+            .bot { background: #c1a059; color: white; align-self: flex-start; }
+            .user { background: #eee; color: #333; align-self: flex-end; }
+            .input-box { padding: 15px; display: flex; gap: 10px; border-top: 1px solid #ddd; background: white; }
+            input { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 5px; outline: none; }
+            button { background: #333; color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer; }
         </style>
     </head>
     <body>
-        <div style="background:#333; color:#c1a059; padding:15px; text-align:center; font-weight:bold;">LITOS COACH - Expert Immobilier</div>
-        <div id="chat-container">
-            <div class="msg bot">Bonjour ! Je suis votre coach Litos. Comment puis-je vous aider dans votre projet de vente en Suisse Romande ?</div>
+        <header>LITOS COACH</header>
+        <div id="chat">
+            <div class="msg bot">Bonjour ! Je suis votre expert Litos. Posez-moi vos questions sur la vente de votre bien ou la législation (Art. 7 RPGA / Art. 84 LATC).</div>
         </div>
-        <div id="input-area">
-            <input type="text" id="user-input" placeholder="Posez votre question...">
-            <button onclick="sendMessage()">Envoyer</button>
+        <div class="input-box">
+            <input type="text" id="userInput" placeholder="Écrivez ici...">
+            <button onclick="send()">Envoyer</button>
         </div>
+
         <script>
-            async function sendMessage() {
-                const input = document.getElementById('user-input');
-                const container = document.getElementById('chat-container');
-                if(!input.value) return;
-                
-                const userMsg = input.value;
-                container.innerHTML += '<div class="msg user">' + userMsg + '</div>';
+            async function send() {
+                const input = document.getElementById('userInput');
+                const chat = document.getElementById('chat');
+                if (!input.value) return;
+
+                const text = input.value;
+                chat.innerHTML += '<div class="msg user">' + text + '</div>';
                 input.value = '';
 
-                const response = await fetch('/chat', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({message: userMsg})
-                });
-                const data = await response.json();
-                container.innerHTML += '<div class="msg bot">' + data.reply + '</div>';
-                container.scrollTop = container.scrollHeight;
+                try {
+                    const res = await fetch('/chat', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ message: text })
+                    });
+                    const data = await res.json();
+                    chat.innerHTML += '<div class="msg bot">' + data.reply + '</div>';
+                    chat.scrollTop = chat.scrollHeight;
+                } catch (e) {
+                    chat.innerHTML += '<div class="msg bot">Erreur de connexion.</div>';
+                }
             }
         </script>
     </body>
@@ -58,25 +72,24 @@ app.get('/', (req, res) => {
     `);
 });
 
-// 2. L'INTELLIGENCE DU CHAT
+// 2. LE MOTEUR IA
 app.post('/chat', async (req, res) => {
-    const API_KEY = "AIzaSyB_WuhWbQyb9oUMlPyx3Hy-p1YPcJkkHsM"; // TA CLÉ EN DUR
+    const API_KEY = "AIzaSyB_WuhWbQyb9oUMlPyx3Hy-p1YPcJkkHsM";
     const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + API_KEY;
 
     try {
         const response = await fetch(url, {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                contents: [{ parts: [{ text: "Tu es l'expert immobilier Litos. Réponds uniquement sur l'immobilier en Suisse Romande (Art 7 RPGA, Art 84 LATC, vente sans commission). Question : " + req.body.message }] }]
+                contents: [{ parts: [{ text: "Tu es l'expert immobilier Litos. Réponds sur l'immobilier en Suisse (Art 7 RPGA, Art 84 LATC). Question : " + req.body.message }] }]
             })
         });
         const data = await response.json();
         res.json({ reply: data.candidates[0].content.parts[0].text });
     } catch (e) {
-        res.json({ reply: "Désolé, je rencontre une petite erreur technique." });
+        res.json({ reply: "Désolé, réessayez." });
     }
 });
 
-const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => console.log('Serveur Litos prêt !'));
+app.listen(process.env.PORT || 10000);
